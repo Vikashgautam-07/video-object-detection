@@ -5,6 +5,9 @@ import cv2
 import numpy as np
 
 
+UNUSED_COCO_IDS = {12, 26, 29, 30, 45, 66, 68, 69, 71, 83}
+
+
 @dataclass
 class Detection:
     label: str
@@ -30,13 +33,20 @@ class ObjectDetector:
             raise ValueError("Threshold must be between 0 and 1")
 
         self.threshold = threshold
-        self.labels = [
+        names = [
             line.strip()
             for line in labels.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-        if not self.labels:
-            raise ValueError("The class label file is empty: " + str(labels))
+        if len(names) != 80:
+            raise ValueError(f"Expected 80 class labels in {labels}")
+
+        names_iter = iter(names)
+        self.labels = {
+            class_id: next(names_iter)
+            for class_id in range(1, 91)
+            if class_id not in UNUSED_COCO_IDS
+        }
 
         self.model = cv2.dnn_DetectionModel(str(weights), str(config))
         self.model.setInputSize(320, 320)
@@ -66,12 +76,7 @@ class ObjectDetector:
             np.asarray(confidences).reshape(-1),
             np.asarray(boxes).reshape(-1, 4),
         ):
-            label_index = int(class_id) - 1
-            label = (
-                self.labels[label_index]
-                if 0 <= label_index < len(self.labels)
-                else "unknown"
-            )
+            label = self.labels.get(int(class_id), "unknown")
             x, y, width, height = map(int, box)
             detections.append(
                 Detection(
