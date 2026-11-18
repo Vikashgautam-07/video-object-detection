@@ -1,84 +1,113 @@
 # Video Object Detection
 
-In the contemporary era of rapid technological advancement, **video** object detection has become central to intelligent surveillance, real-time monitoring, and automated behavioral analysis. This repository implements a three-phase pipeline that transforms raw video streams into structured, actionable metadata using SSD-based detection, OpenCV, and COCO label maps.
+Detect objects in webcam or video frames using OpenCV's SSD MobileNet model.
+The program draws bounding boxes, shows the detected classes and counts for
+each frame, and can save those per-frame counts to a CSV file.
 
-## 1. Project Overview
+## Project structure
 
-This project is designed as a compact yet complete research pipeline for video object detection, bridging the gap between exploratory notebooks and near-production scripts. The work progressively evolves from basic frame-level detection to class-specific entity statistics suitable for scene understanding and analytics.
+```text
+video-object-detection/
+├── main.py                 # Command-line entry point
+├── detector.py             # Loads the model, detects objects, draws boxes
+├── counter.py              # Counts objects by class and draws counts
+├── requirements.txt
+├── models/
+│   ├── frozen_inference_graph.pb
+│   ├── ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
+│   └── coco.names
+├── sample_video/           # Example videos
+├── img/                    # Project images
+└── notebooks/
+    └── phase1_exploration.ipynb
+```
 
-### Motivation
+## Setup
 
-Traditional static image classification fails to address temporal consistency, frame-by-frame variability, and the latency demands of real-time video streams.
+Python 3 and `venv` are recommended. On Ubuntu/WSL, install venv support if
+needed with `sudo apt install python3-venv`.
 
-- Using a single-shot detector (SSD) for fast, real-time inference on video streams.
-- Integrating OpenCV’s video pipeline with TensorFlow’s frozen inference graphs for efficient deployment.
-- Progressively enriching outputs from raw detections to interpretable scene-level summaries (e.g., “3 cars and 2 person”).
+Create and activate a virtual environment, then install the dependencies:
 
-### Objectives
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
 
-- Implement and verify SSD-based object detection on video frames.  
-- Design scripts that move from simple detection to total object counting and finally granular entity counting.  
-- Provide a clear, reproducible template for video object detection research projects.
+When the virtual environment is active, run the program with `python`.
 
-## 2. Core Technologies
+## Run
 
-The implementation balances high-speed inference with robust frame manipulation and metadata extraction.
+Use the default webcam (camera index `0`):
 
-- **SSD (Single Shot MultiBox Detector)**  
-  - Single-stage detector that performs localization and classification in one pass, enabling near real-time video inference.
+```bash
+python main.py
+```
 
-- **TensorFlow Frozen Inference Graph**  
-  - `frozen_inference_graph.pb` contains the serialized network architecture and trained SSD weights for efficient loading via OpenCV’s DNN module.
+Use a video file:
 
-- **OpenCV (cv2) & DNN Module**  
-  - `cv2.VideoCapture` is used for frame acquisition, while `cv2.dnn.readNetFromTensorflow` loads and runs the frozen graph on each frame.
+```bash
+python main.py sample_video/classroom.mp4
+```
 
-- **COCO Label Mapping**  
-  - COCO `.names` files map numeric class IDs to human-readable labels, enabling classification across 80 object categories.
+Change the minimum confidence threshold (default is `0.5`):
 
-## 3. Project Phases
+```bash
+python main.py sample_video/classroom.mp4 --thres 0.65
+```
 
-The project is structured to mirror a typical computer vision research lifecycle, from exploratory analysis to deployable scripts.
+Run for a limited time, set the capture size, or avoid opening a display
+window:
 
-### Phase 1 – Simple Object Detection (Notebook)
+```bash
+python main.py sample_video/classroom.mp4 --seconds 30 --width 640 --height 480
+python main.py sample_video/classroom.mp4 --no-window
+```
 
-- File: `Phase 1_ Simple object detection.ipynb`  
-- Role: Experimental baseline to validate that the SSD model and frozen graph load correctly and produce reasonable detections. 
-- Environment: Jupyter Notebook, supporting rapid iteration, visualization, and hyperparameter tuning on static frames. 
+Press `q` in the video window to stop early. By default, the program processes
+the video until it ends.
 
-### Phase 2 – Total Object Count (Script)
+## Save counts to CSV
 
-- File: `Phase 2_Total Object count.py`  
-- Role: Standalone Python script that extends detection to maintain a running tally of all objects detected per frame. 
-- Goal: Provide a holistic measure of scene density and object activity in real time. 
+Save per-frame class counts to a named file:
 
-### Phase 3 – Entity Count (Script)
+```bash
+python main.py sample_video/classroom.mp4 --save-csv results.csv
+```
 
-- File: `Phase 3_Entity count.py`  
-- Role: Final phase where the system transitions from raw counts to class-specific statistics using the COCO label map. 
-- Output: Instead of “N objects detected,” the script reports granular statistics such as “3 cars and 2 persons,” turning visual signals into actionable metadata.
+If no filename is provided, the output is saved as `detections.csv`:
 
+```bash
+python main.py sample_video/classroom.mp4 --save-csv
+```
 
-## 4. Installation & Setup
+The CSV contains a frame number, detected class, and count for that frame.
+Frames with no detections are recorded with a count of zero.
 
-### Prerequisites
+## Options
 
-- Python 3.x  
-- pip  
-- A working webcam or video file as input  
-- Basic familiarity with OpenCV and Python scripting
+Run `python main.py --help` to see all options:
 
-## 5. Research Perspective
+- `source`: Webcam index or video path (default: `0`)
+- `--thres`: Minimum confidence from `0` to `1` (default: `0.5`)
+- `--seconds`: Stop after the specified number of seconds; `0` means no time
+  limit
+- `--width`, `--height`: Requested capture size (default: `640x480`)
+- `--save-csv [FILE]`: Save per-frame counts; default filename is
+  `detections.csv`
+- `--no-window`: Process without displaying the video
 
-Although this repository is lightweight, it is structured to reflect a typical computer vision research pipeline.
+The terminal's **Final counts** are the counts from the last processed frame,
+not totals accumulated over the entire video. Use the CSV for per-frame
+results.
 
-- **Exploratory stage**: Phase 1 Notebook for model sanity checks, hyperparameter exploration, and visualization.  
-- **Prototyping stage**: Phase 2 script for real-time deployment and memory-aware execution.  
-- **Analysis stage**: Phase 3 script for extracting semantic-level statistics that can feed higher-level tasks (e.g., traffic analysis, occupancy monitoring).
+## Webcam on WSL
 
-This makes the repository a useful starting point for more advanced topics such as tracking, temporal consistency, or integrating fairness and robustness metrics over time.
+If the program reports that no webcam is available, the current environment
+does not have a camera device such as `/dev/video0`. Use a video file, or
+configure camera/USB forwarding to WSL before trying the webcam again.
 
-## 6. License
+## License
 
-This project is licensed under the **Apache-2.0 License**.  
-See the [`LICENSE`](LICENSE) file for details.
+Licensed under the Apache-2.0 License. See [LICENSE](LICENSE).
